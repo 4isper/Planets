@@ -2,10 +2,15 @@ package com.m4isper.planets.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// Deep space palette: a navy night sky with NASA blue and the mission red as accent.
+val SpaceBlack = Color(0xFF05070F)
+val SpaceNavy = Color(0xFF10182F)
+val SpaceSurface = Color(0xFF161F3D)
+val SpaceSurfaceVariant = Color(0xFF232E52)
+val MistBlue = Color(0xFFB9C4E3)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val NasaBlue = Color(0xFF4C7DF0)
+val NasaBlueDark = Color(0xFF1B3F9E)
+val NasaRed = Color(0xFFFC3D21)
+val Starlight = Color(0xFFF7F9FF)
+val Starcheck = Color(0xFF0B0D18)
