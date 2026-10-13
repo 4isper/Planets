@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -57,7 +58,13 @@ dependencies {
     implementation(libs.coil.network.okhttp)
 
     // Navigation
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    // Scopes hiltViewModel() to the back stack entry inside NavDisplay.
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
+    // Serializable NavKeys: the back stack survives process death.
+    implementation(libs.kotlinx.serialization.core)
 
     // Lifecycle
     implementation(libs.androidx.lifecycle.viewmodel.compose)

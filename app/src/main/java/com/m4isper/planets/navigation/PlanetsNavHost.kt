@@ -1,42 +1,49 @@
 package com.m4isper.planets.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.navigation.NavHostController
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
+import kotlinx.serialization.Serializable
 import com.m4isper.planets.presentation.detail.PlanetDetailScreen
 import com.m4isper.planets.presentation.list.PlanetsListScreen
 
-object PlanetsRoutes {
-    const val LIST = "planets"
-    const val DETAILS = "planet/{date}"
+/**
+ * Destinations as types instead of strings: a wrong route no longer compiles.
+ *
+ * Serializable so the back stack can be persisted and survive process death.
+ */
+@Serializable
+sealed interface PlanetsDestination : NavKey {
+    @Serializable
+    data object List : PlanetsDestination
 
-    fun details(date: String): String = "planet/$date"
+    @Serializable
+    data class Details(val date: String) : PlanetsDestination
 }
 
 @Composable
-fun PlanetsNavHost(
-    navController: NavHostController = rememberNavController(),
-) {
-    NavHost(
-        navController = navController,
-        startDestination = PlanetsRoutes.LIST,
-    ) {
-        composable(route = PlanetsRoutes.LIST) {
-            PlanetsListScreen(
-                onPlanetClick = { date -> navController.navigate(PlanetsRoutes.details(date)) },
-            )
-        }
-        composable(
-            route = PlanetsRoutes.DETAILS,
-            arguments = listOf(navArgument("date") { type = NavType.StringType }),
-        ) {
-            PlanetDetailScreen(
-                onBackClick = { navController.navigateUp() },
-            )
-        }
-    }
+fun PlanetsNavHost() {
+    val backStack = rememberNavBackStack(PlanetsDestination.List)
+
+    NavDisplay(
+        backStack = backStack,
+        onBack = { backStack.removeLastOrNull() },
+        entryProvider = entryProvider {
+            entry<PlanetsDestination.List> {
+                PlanetsListScreen(
+                    onPlanetClick = { date ->
+                        backStack += PlanetsDestination.Details(date)
+                    },
+                )
+            }
+            entry<PlanetsDestination.Details> { key ->
+                PlanetDetailScreen(
+                    date = key.date,
+                    onBackClick = { backStack.removeLastOrNull() },
+                )
+            }
+        },
+    )
 }
