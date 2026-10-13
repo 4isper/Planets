@@ -17,10 +17,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.m4isper.planets.R
 import com.m4isper.planets.ui.model.PlanetUi
 
 /**
@@ -57,7 +59,7 @@ fun PlanetCard(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "Нет изображения",
+                            text = stringResource(R.string.state_no_image),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -89,7 +91,7 @@ fun PlanetCard(
  */
 @Composable
 fun LoadError(
-    message: String,
+    message: Int,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -98,9 +100,9 @@ fun LoadError(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(message)
+        Text(stringResource(message))
         Button(onClick = onRetry) {
-            Text("Повторить")
+            Text(stringResource(R.string.action_retry))
         }
     }
 }

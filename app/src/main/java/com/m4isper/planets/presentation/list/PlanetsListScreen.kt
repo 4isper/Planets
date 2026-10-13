@@ -23,9 +23,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.m4isper.planets.R
 import com.m4isper.planets.ui.model.PlanetUi
 import com.m4isper.planets.ui.components.LoadError
 import com.m4isper.planets.ui.components.PlanetCard
@@ -46,7 +48,7 @@ fun PlanetsListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Nasa") })
+            TopAppBar(title = { Text(stringResource(R.string.planets_title)) })
         },
     ) { innerPadding ->
         PullToRefreshBox(
@@ -71,10 +73,10 @@ fun PlanetsListScreen(
                     )
                     uiState is ListUiState.Loading -> CircularProgressIndicator()
                     uiState is ListUiState.Error -> LoadError(
-                        message = "Ошибка загрузки",
+                        message = R.string.state_loading_failed,
                         onRetry = viewModel::refresh,
                     )
-                    else -> Text("Нет данных")
+                    else -> Text(stringResource(R.string.state_no_data))
                 }
             }
         }
@@ -140,7 +142,7 @@ private fun PlanetsGrid(
         if (appendError) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LoadError(
-                    message = "Не удалось загрузить ещё",
+                    message = R.string.state_load_more_failed,
                     onRetry = onRetryAppend,
                 )
             }

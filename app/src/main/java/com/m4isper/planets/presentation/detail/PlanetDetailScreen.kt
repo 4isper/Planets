@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.m4isper.planets.R
 import com.m4isper.planets.ui.model.PlanetUi
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,12 +50,12 @@ fun PlanetDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Детализация") },
+                title = { Text(stringResource(R.string.planet_details_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Назад",
+                            contentDescription = stringResource(R.string.action_back),
                         )
                     }
                 },
@@ -68,7 +70,7 @@ fun PlanetDetailScreen(
         ) {
             when (val state = uiState) {
                 DetailUiState.Loading -> CircularProgressIndicator()
-                DetailUiState.Empty -> Text("Нет данных")
+                DetailUiState.Empty -> Text(stringResource(R.string.state_no_data))
                 is DetailUiState.Content -> PlanetDetails(planet = state.planet)
             }
         }
@@ -117,7 +119,11 @@ private fun PlanetDetails(
             OutlinedButton(onClick = { uriHandler.openUri(permalink) }) {
                 // The feed exposes no separate video URL: videos only play on the
                 // NASA page, so the same link gets a context aware label.
-                Text(planet.openLabel)
+                Text(
+                    stringResource(
+                        if (planet.isVideo) R.string.action_watch_video else R.string.action_open_original,
+                    ),
+                )
             }
         }
     }

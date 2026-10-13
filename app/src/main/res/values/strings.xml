@@ -1,3 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Planets</string>
+    <string name="planets_title">NASA APOD</string>
+    <string name="planet_details_title">Details</string>
+
+    <!-- Actions -->
+    <string name="action_retry">Retry</string>
+    <string name="action_back">Back</string>
+    <string name="action_open_original">Open original</string>
+    <string name="action_watch_video">Watch video</string>
+
+    <!-- States -->
+    <string name="state_loading_failed">Failed to load</string>
+    <string name="state_load_more_failed">Could not load more</string>
+    <string name="state_no_data">Nothing to show yet</string>
+    <string name="state_no_image">No image</string>
 </resources>

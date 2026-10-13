@@ -21,9 +21,6 @@ data class PlanetUi(
 ) {
     val hasImage: Boolean
         get() = !imageUrl.isNullOrBlank()
-
-    val openLabel: String
-        get() = if (isVideo) "Смотреть видео" else "Открыть оригинал"
 }
 
 fun Planet.toUi(): PlanetUi = PlanetUi(
