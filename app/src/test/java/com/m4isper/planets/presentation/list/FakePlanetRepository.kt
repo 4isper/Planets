@@ -18,6 +18,11 @@ class FakePlanetRepository(
     val pagination: MutableStateFlow<Pagination?> = MutableStateFlow(null),
 ) : PlanetRepository {
 
+    var fetchCalls = 0
+        private set
+
+    var fetchFailure: Throwable? = null
+
     var refreshCalls = 0
         private set
 
@@ -58,6 +63,11 @@ class FakePlanetRepository(
     }
 
     override fun getPlanet(date: String): Flow<Planet?> = flowOf(items.value.firstOrNull())
+
+    override suspend fun fetchPlanet(date: String) {
+        fetchCalls++
+        fetchFailure?.let { throw it }
+    }
 
     companion object {
         const val TOTAL_PAGES = 5

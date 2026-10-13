@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.m4isper.planets.R
+import com.m4isper.planets.ui.components.LoadError
 import com.m4isper.planets.ui.model.PlanetUi
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,7 +71,14 @@ fun PlanetDetailScreen(
         ) {
             when (val state = uiState) {
                 DetailUiState.Loading -> CircularProgressIndicator()
-                DetailUiState.Empty -> Text(stringResource(R.string.state_no_data))
+                DetailUiState.Empty -> LoadError(
+                    message = R.string.state_not_found,
+                    onRetry = viewModel::retry,
+                )
+                is DetailUiState.Error -> LoadError(
+                    message = R.string.state_loading_failed,
+                    onRetry = viewModel::retry,
+                )
                 is DetailUiState.Content -> PlanetDetails(planet = state.planet)
             }
         }

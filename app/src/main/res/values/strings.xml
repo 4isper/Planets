@@ -14,5 +14,6 @@
     <string name="state_loading_failed">Failed to load</string>
     <string name="state_load_more_failed">Could not load more</string>
     <string name="state_no_data">Nothing to show yet</string>
+    <string name="state_not_found">Record not in the cache</string>
     <string name="state_no_image">No image</string>
 </resources>

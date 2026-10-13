@@ -71,6 +71,8 @@ class PlanetUseCasesTest {
             if (after.hasMore) after.advanced() else null
 
         override fun getPlanet(date: String): Flow<Planet?> = flowOf(samplePlanet)
+
+        override suspend fun fetchPlanet(date: String) = Unit
     }
 
     private companion object {

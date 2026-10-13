@@ -14,5 +14,6 @@
     <string name="state_loading_failed">Ошибка загрузки</string>
     <string name="state_load_more_failed">Не удалось загрузить ещё</string>
     <string name="state_no_data">Нет данных</string>
+    <string name="state_not_found">Записи нет в кеше</string>
     <string name="state_no_image">Нет изображения</string>
 </resources>

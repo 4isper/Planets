@@ -16,6 +16,7 @@ import com.m4isper.repository.mappers.toPagination
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import retrofit2.HttpException
 
 class PlanetRepositoryImpl @Inject constructor(
     private val database: PlanetsDatabase,
@@ -57,6 +58,16 @@ class PlanetRepositoryImpl @Inject constructor(
 
     override fun getPlanet(date: String): Flow<Planet?> =
         database.apodDao().observeByDate(date).map { it?.toDomain() }
+
+    override suspend fun fetchPlanet(date: String) {
+        val response = api.getApod(date = date)
+        val dto = response.body() ?: throw HttpException(response)
+        // page 0 puts a record fetched on its own at the top of the feed: the user
+        // just asked for it, and the normal paginated path will overwrite the
+        // position once that page is loaded.
+        val entity = dto.toEntity(page = 0, position = 0) ?: return
+        database.apodDao().upsert(entity)
+    }
 
     private fun ApodPage.toEntities(pageNumber: Int): List<ApodEntity> =
         items.mapIndexedNotNull { index, dto -> dto.toEntity(page = pageNumber, position = index) }

@@ -21,4 +21,7 @@ interface PlanetRepository {
     suspend fun loadMore(after: Pagination): Pagination?
 
     fun getPlanet(date: String): Flow<Planet?>
+
+    /** Fetches one record from the network and caches it. */
+    suspend fun fetchPlanet(date: String)
 }

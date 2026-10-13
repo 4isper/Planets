@@ -15,6 +15,13 @@ interface NasaApiService {
         @Query("order") order: String = "desc",
         @Query("_fields") fields: String = REQUESTED_FIELDS,
     ): Response<List<ApodResponse>>
+
+    /** Single record, used to recover a details screen whose cache entry is gone. */
+    @GET("wp-json/wp/v2/apod-basic")
+    suspend fun getApod(
+        @Query("date") date: String,
+        @Query("_fields") fields: String = REQUESTED_FIELDS,
+    ): Response<ApodResponse>
 }
 
 /**
