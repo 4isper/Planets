@@ -16,6 +16,7 @@ class PlanetTest {
     @Test
     fun `video records are detected by media type`() {
         assertTrue(planet(mediaType = "video").isVideo)
+        assertTrue(planet(mediaType = "iframe").isVideo)
         assertFalse(planet(mediaType = "image").isVideo)
     }
 

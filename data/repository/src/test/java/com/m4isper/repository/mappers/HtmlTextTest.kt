@@ -29,6 +29,18 @@ class HtmlTextTest {
     }
 
     @Test
+    fun `decodes extended named entities`() {
+        assertEquals("“hi” ‘yo’ © ° —", "&ldquo;hi&rdquo; &lsquo;yo&rsquo; &copy; &deg; &mdash;".stripHtml())
+    }
+
+    @Test
+    fun `stripApodHtml cuts boilerplate with curly apostrophe`() {
+        val html = "A nebula. <br><br><strong>Tomorrow’s picture: </strong><a href=\"#\">sun</a>"
+
+        assertEquals("A nebula.", html.stripApodHtml())
+    }
+
+    @Test
     fun `stripApodHtml cuts navigation boilerplate`() {
         val html = "<strong>Explanation:</strong> A nebula. <br><br>" +
             "<strong>APOD's main NASA site is <a href=\"#\">moving</a>:</strong> " +

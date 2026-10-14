@@ -43,4 +43,4 @@ interface NasaApiService {
  * which inflates a 25-item page from ~75 KB to ~290 KB.
  */
 private const val REQUESTED_FIELDS =
-    "date,post_id,title,permalink,media_type,explanation,credit,alt,url,hdurl"
+    "date,post_id,title,permalink,media_type,explanation,credit,copyright,alt,url,hdurl"
