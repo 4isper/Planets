@@ -9,12 +9,13 @@
 
 | | |
 |---|---|
-| UI | Kotlin, Jetpack Compose (Material3), Navigation Compose |
-| Сеть | Retrofit 3 + Gson, OkHttp 5 |
-| Кеш | Room 2.8 (KMP-ready драйвер `androidx.sqlite`) |
-| DI | Hilt 2.60 + KSP 2.3 |
-| Изображения | Coil 3 |
-| Сборка | AGP 9.4.1, Gradle 9.8.1, JDK 21, compileSdk 37, minSdk 26 |
+| UI | Kotlin 2.4.21, Jetpack Compose (Material3), Navigation3 1.2.0 (`NavDisplay`) |
+| Сеть | Retrofit 3.0.0 + Gson, OkHttp 5 |
+| Кеш | Room 2.8.5 |
+| DI | Hilt 2.60.1 + KSP 2.3.12 |
+| Изображения | Coil 3.6.3 (+ `coil-network-okhttp`), Telephoto 0.19.0 (zoomable-viewer) |
+| Текст | Jsoup 1.23.2 (HTML-фрагменты → `AnnotatedString`) |
+| Сборка | AGP 9.4.1, Gradle 9.8.1, JDK 21, compileSdk 37, minSdk 26, Compose BOM 2026.09.00 |
 
 Все зависимости версионируются в `gradle/libs.versions.toml`.
 
@@ -42,14 +43,18 @@ apod_basic_not_found`, и это ответ, а не сбой: повторят�
 
 Две особенности формата, на которые опирается код:
 
-- `url` — ссылка на страницу NASA, изображение лежит в `hdurl` (у видео там
-  кадр-превью). Отдельной ссылки на видео API не отдаёт, поэтому кнопка на
-  детализации просто открывает страницу.
-- `explanation` и `credit` приходят фрагментами HTML (`<strong>`, `<a>`,
-  сущности). Домен хранит чистый текст: `stripHtml` снимает теги и сущности,
-  `stripApodHtml` отрезает служебный хвост NASA («APOD's main NASA site is
-  moving…», «Tomorrow's picture:…»). Реализация на чистом Kotlin, без
-  `android.text.Html`, чтобы работали JVM-тесты.
+- `url` — ссылка на страницу NASA (`permalink ?: url`), изображение — `hdurl`
+  (у `video`/`iframe` там кадр-превью, иначе `hdUrl ?: url`). Отдельной ссылки
+  на видео API не отдаёт, поэтому кнопка на детализации открывает `permalink`
+  («смотреть видео» / «открыть оригинал»).
+- `explanation`, `credit`/`copyright` приходят фрагментами HTML (`<strong>`,
+  `<em>`, `<a>`, сущности). Домен хранит их как raw HTML с вырезанным
+  служебным хвостом NASA («APOD's main NASA site is moving…»,
+  «Tomorrow's picture:…»): `cutApodBoilerplateHtml` режет хвост, но теги
+  оставляет, UI рендерит их через Jsoup в `AnnotatedString` (`toRichText()`:
+  bold/italic/кликабельные ссылки). Чистый текст без тегов хранят только
+  `title`/`alt` (`stripHtml` на чистом Kotlin), `stripApodHtml` — plain-вариант
+  для legacy-строк кеша без тегов.
 
 Адрес фида лежит в `gradle.properties` как `apodBaseUrl` — это не секрет, поэтому
 он в репозитории; переопределить для конкретной сборки можно флагом:
@@ -67,18 +72,22 @@ app          → domain, data:di
 data:di      → domain, data:local, data:remote, data:repository
 data:repository → domain, data:local, data:remote
 data:local, data:remote → (внешние зависимости)
-domain       → (внешних зависимостей нет)
+domain       → (только `javax.inject`, `kotlinx-coroutines-core`)
 ```
 
-- **`domain`** — чистый JVM-модуль. Бизнес-правила: `Pagination` (условие
-  окончания архива), правила отображения в `Planet`, `PlanetsFeed`,
-  `LoadMoreResult`. Контракты: `PlanetRepository`, четыре use case.
-- **`data:remote`** — `NasaApiService`, DTO `ApodResponse`, обёртка `ApodPage`
-  (пункты + заголовок `X-WP-TotalPages`).
+- **`domain`** — JVM-модуль без Android-зависимостей. Бизнес-правила: `Pagination` (условие
+  окончания архива), правила отображения в `Planet`, `PlanetsFeed`.
+  Контракты: `PlanetRepository`, пять use case (`GetPlanets`, `RefreshPlanets`,
+  `LoadMorePlanets` + `LoadMoreResult`, `GetPlanetDetails`,
+  `LoadPlanetDetails` + `LoadPlanetDetailsResult`).
+- **`data:remote`** — `NasaApiService`, DTO `ApodResponse` (`model/`), обёртка
+  `ApodPage` (`getApodPage`, `MAX_PAGE_SIZE = 25`, заголовок `X-WP-TotalPages`)
+  и `ApodRecord` (`getApodRecord`, `toApodPathSegment` для `YYMMDD`).
 - **`data:local`** — Room: `ApodEntity` (с индексом по `(page, position)`),
-  `ApodDao`, `RemoteKeys`, `PlanetsDatabase`.
+  `ApodDao`, `RemoteKeys` + `RemoteKeysDao`, `PlanetsDatabase`.
 - **`data:repository`** — `PlanetRepositoryImpl` и мапперы
-  DTO ↔ Entity ↔ Domain, стрип HTML.
+  DTO ↔ Entity ↔ Domain (`ApodMappers`, `PaginationMappers`, `HtmlText`:
+  `stripHtml` для `title`/`alt`, `cutApodBoilerplateHtml` для `explanation`/`credit`).
 - **`data:di`** — Hilt-модули `RemoteModule`, `LocalModule`, `RepositoryModule`.
 - **`app`** — presentation и дизайн-система:
 
@@ -86,22 +95,24 @@ domain       → (внешних зависимостей нет)
 app/src/main/java/com/m4isper/planets/
 ├── MainActivity.kt
 ├── PlanetsApplication.kt
-├── navigation/         ← NavHost и маршруты
-├── presentation/       ← фичи: экран + его ViewModel
-│   ├── list/
-│   └── detail/
+├── navigation/         ← NavHost на Navigation3 (`NavDisplay`, `NavKey`)
+├── presentation/       ← фичи
+│   ├── list/           ← экран + ViewModel сетки
+│   └── detail/         ← экран + ViewModel + `PlanetDetailViewModelFactory` (Hilt EntryPoint: Navigation3 не даёт `SavedStateHandle`) + `ImageViewer` (Telephoto zoom)
 └── ui/                 ← дизайн-система
     ├── theme/          ← цвета, типографика, тема
     ├── components/     ← PlanetCard, LoadError
-    └── model/          ← PlanetUi + toUi()
+    └── model/          ← PlanetUi + toUi(), PlanetCardUi + toCardUi(), RichText + toRichText() (Jsoup)
 ```
 
 Доменная модель не попадает в композаблы: единственное место, где встречаются
-`domain` и `PlanetUi` — ViewModel-ы. В `ui/` домен известен только мапперу `toUi()`.
+`domain` и UI-модели — ViewModel-ы и мапперы `toUi()` / `toCardUi()` / `toRichText()`.
+Карточки сетки (`PlanetCardUi`) — только plain-строки без Jsoup, поэтому маппятся
+в Main-потоке; rich-текст (`PlanetUi`) маппится на фоновом диспетчере.
 
 ## Тесты
 
-57 unit-тестов, без эмулятора и без мок-фреймворка — use cases собираются обычными
+67 unit-тестов, без эмулятора и без мок-фреймворка — use cases собираются обычными
 конструкторами, репозиторий подменяется написанным вручную `FakePlanetRepository`.
 
 ```bash
@@ -111,11 +122,13 @@ app/src/main/java/com/m4isper/planets/
 - `domain` — правила `Pagination` (включая конец архива по пустой странице)
   и `Planet`, поведение use cases
 - `data:remote` — формат `YYMMDD` для маршрута одной записи
-- `data:repository` — мапперы и стрип HTML
+- `data:repository` — мапперы и HTML: `stripHtml` для `title`/`alt`,
+  `cutApodBoilerplateHtml` с сохранением тегов для `explanation`/`credit`
 - `app` — машины состояний обоих экранов: первичная загрузка, ошибка с
   сохранением причины, ретрай, конец архива, защита от параллельных вызовов и от
   гонки refresh/loadMore, «записи нет в фиде» как терминальное состояние,
-  тёплый кеш при упавшей сети (включая случай, когда кеш приходит позже ответа)
+  тёплый кеш при упавшей сети (включая случай, когда кеш приходит позже ответа),
+  плюс `RichText` (Jsoup → `AnnotatedString`) и `PlanetCardUi`-маппинг
 
 Для тестов ViewModel подключён `kotlinx-coroutines-test` и включён
 `unitTests.isReturnDefaultValues = true` (иначе `android.util.Log` кидает
