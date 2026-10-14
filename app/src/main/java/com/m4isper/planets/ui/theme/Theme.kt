@@ -16,12 +16,17 @@ private val DarkColorScheme = darkColorScheme(
     secondary = MistBlue,
     onSecondary = SpaceBlack,
     tertiary = NasaRed,
+    onTertiary = Starlight,
+    tertiaryContainer = EmberContainer,
+    onTertiaryContainer = EmberOnContainer,
     background = SpaceBlack,
     onBackground = Starlight,
     surface = SpaceNavy,
     onSurface = Starlight,
     surfaceVariant = SpaceSurfaceVariant,
     onSurfaceVariant = MistBlue,
+    surfaceContainer = SpaceSurface,
+    surfaceContainerHigh = SpaceSurfaceVariant,
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -31,18 +36,23 @@ private val LightColorScheme = lightColorScheme(
     onSecondary = Starlight,
     tertiary = NasaRed,
     onTertiary = Starlight,
+    tertiaryContainer = EmberOnContainer,
+    onTertiaryContainer = EmberDeep,
     background = Starlight,
     onBackground = Starcheck,
     surface = Starlight,
     onSurface = Starcheck,
-    surfaceVariant = SpaceSurface,
+    surfaceVariant = PaleStar,
     onSurfaceVariant = SpaceNavy,
+    surfaceContainer = PaleStar,
+    surfaceContainerHigh = Starlight,
 )
 
 @Composable
 fun PlanetsTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    // Brand palette first: wallpaper dynamic colors would hide the space theme.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -54,10 +55,18 @@ dependencies {
 
     // Image loading
     implementation(libs.coil.compose)
+    // Coil 3 pulls in only `coil-core`; without an explicit fetcher images fail to
+    // load entirely, and silently — no exception, just empty placeholders.
     implementation(libs.coil.network.okhttp)
 
     // Navigation
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    // Scopes hiltViewModel() to the back stack entry inside NavDisplay.
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
+    // Serializable NavKeys: the back stack survives process death.
+    implementation(libs.kotlinx.serialization.core)
 
     // Lifecycle
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -72,10 +81,19 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.jsoup)
+    implementation(libs.telephoto.zoomable.image.coil3)
     testImplementation(libs.junit)
+    testImplementation(libs.jsoup)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    // The Compose BOM has to be repeated here: `androidTestImplementation` does not
+    // extend `implementation`, where the BOM is declared above, so without this copy
+    // the versionless `ui-test-junit4` below reaches Gradle with no version at all.
+    // It only surfaces through `check`/`build` — `assemble*` and the unit tests never
+    // resolve `debugAndroidTestRuntimeClasspath`.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

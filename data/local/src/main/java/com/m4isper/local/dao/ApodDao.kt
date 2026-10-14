@@ -19,6 +19,10 @@ interface ApodDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(items: List<ApodEntity>)
 
+    /** For a record fetched on its own, so a stale cache copy gets replaced. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(item: ApodEntity)
+
     @Query("DELETE FROM apod")
     suspend fun clearAll()
 }

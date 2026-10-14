@@ -23,10 +23,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.m4isper.planets.ui.model.PlanetUi
+import com.m4isper.planets.R
+import com.m4isper.planets.ui.model.PlanetCardUi
 import com.m4isper.planets.ui.components.LoadError
 import com.m4isper.planets.ui.components.PlanetCard
 import kotlinx.coroutines.flow.collect
@@ -40,17 +42,15 @@ fun PlanetsListScreen(
     onPlanetClick: (date: String) -> Unit,
     viewModel: PlanetsListViewModel = hiltViewModel(),
 ) {
-    val planets by viewModel.items.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val content = uiState as? ListUiState.Content
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Nasa") })
+            TopAppBar(title = { Text(stringResource(R.string.planets_title)) })
         },
     ) { innerPadding ->
         PullToRefreshBox(
-            isRefreshing = content?.isRefreshing == true,
+            isRefreshing = (uiState as? ListUiState.Content)?.isRefreshing == true,
             onRefresh = viewModel::refresh,
             modifier = Modifier
                 .padding(innerPadding)
@@ -60,21 +60,20 @@ fun PlanetsListScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                when {
-                    planets.isNotEmpty() -> PlanetsGrid(
-                        planets = planets,
-                        isAppending = content?.isAppending == true,
-                        appendError = content?.appendError == true,
+                when (val state = uiState) {
+                    is ListUiState.Content -> PlanetsGrid(
+                        planets = state.items,
+                        isAppending = state.isAppending,
+                        appendError = state.appendError,
                         onPlanetClick = onPlanetClick,
                         onEndReached = viewModel::loadMore,
                         onRetryAppend = viewModel::loadMore,
                     )
-                    uiState is ListUiState.Loading -> CircularProgressIndicator()
-                    uiState is ListUiState.Error -> LoadError(
-                        message = "Ошибка загрузки",
+                    ListUiState.Loading -> CircularProgressIndicator()
+                    is ListUiState.Error -> LoadError(
+                        message = stringResource(R.string.state_loading_failed),
                         onRetry = viewModel::refresh,
                     )
-                    else -> Text("Нет данных")
                 }
             }
         }
@@ -83,7 +82,7 @@ fun PlanetsListScreen(
 
 @Composable
 private fun PlanetsGrid(
-    planets: List<PlanetUi>,
+    planets: List<PlanetCardUi>,
     isAppending: Boolean,
     appendError: Boolean,
     onPlanetClick: (date: String) -> Unit,
@@ -140,7 +139,7 @@ private fun PlanetsGrid(
         if (appendError) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LoadError(
-                    message = "Не удалось загрузить ещё",
+                    message = stringResource(R.string.state_load_more_failed),
                     onRetry = onRetryAppend,
                 )
             }

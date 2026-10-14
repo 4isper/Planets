@@ -18,6 +18,9 @@ android {
 
     buildTypes {
         release {
+            // R8 stays on in `app` only. Shrinking here produces stripped AARs:
+            // Hilt loses its `*_Factory`, Room and Retrofit their DAOs, entities and
+            // services. Rules for consumers travel via `consumerProguardFiles`.
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

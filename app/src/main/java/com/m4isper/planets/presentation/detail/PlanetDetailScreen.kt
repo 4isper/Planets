@@ -1,5 +1,7 @@
 package com.m4isper.planets.presentation.detail
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,33 +24,49 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.m4isper.planets.R
+import com.m4isper.planets.ui.components.LoadError
 import com.m4isper.planets.ui.model.PlanetUi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlanetDetailScreen(
+    date: String,
     onBackClick: () -> Unit,
-    viewModel: PlanetDetailViewModel = hiltViewModel(),
+    viewModel: PlanetDetailViewModel = viewModel(
+        key = "planet-detail-$date",
+        factory = planetDetailViewModelFactory(LocalContext.current.applicationContext, date),
+    ),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isRetrying by viewModel.isRetrying.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Детализация") },
+                title = { Text(stringResource(R.string.planet_details_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Назад",
+                            contentDescription = stringResource(R.string.action_back),
                         )
                     }
                 },
@@ -63,11 +81,32 @@ fun PlanetDetailScreen(
         ) {
             when (val state = uiState) {
                 DetailUiState.Loading -> CircularProgressIndicator()
-                DetailUiState.Empty -> Text("Нет данных")
+                // NotFound is settled: the feed has no such date, so no retry is offered.
+                DetailUiState.NotFound -> LoadError(message = stringResource(R.string.state_record_missing))
+                DetailUiState.Empty -> FetchState(
+                    message = stringResource(R.string.state_not_found),
+                    isRetrying = isRetrying,
+                    onRetry = viewModel::retry,
+                )
+                is DetailUiState.Error -> FetchState(
+                    message = stringResource(R.string.state_loading_failed),
+                    isRetrying = isRetrying,
+                    onRetry = viewModel::retry,
+                )
                 is DetailUiState.Content -> PlanetDetails(planet = state.planet)
             }
         }
     }
+}
+
+/** Swaps the failure block for a spinner while the fetch is in flight. */
+@Composable
+private fun FetchState(
+    message: String,
+    isRetrying: Boolean,
+    onRetry: () -> Unit,
+) {
+    if (isRetrying) CircularProgressIndicator() else LoadError(message = message, onRetry = onRetry)
 }
 
 @Composable
@@ -76,6 +115,7 @@ private fun PlanetDetails(
     modifier: Modifier = Modifier,
 ) {
     val uriHandler = LocalUriHandler.current
+    var showViewer by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -89,7 +129,12 @@ private fun PlanetDetails(
                 contentDescription = planet.imageContentDescription,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(4f / 3f),
+                    .aspectRatio(4f / 3f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showViewer = true },
+                    ),
                 contentScale = ContentScale.Crop,
             )
         }
@@ -97,23 +142,53 @@ private fun PlanetDetails(
             text = planet.title,
             style = MaterialTheme.typography.titleLarge,
         )
-        Text(
-                text = planet.subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        if (planet.explanation.isNotEmpty()) {
-            Text(
+        RichText(
+            text = planet.subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (planet.explanation.text.isNotEmpty()) {
+            RichText(
                 text = planet.explanation,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
             )
         }
         planet.permalink?.let { permalink ->
             OutlinedButton(onClick = { uriHandler.openUri(permalink) }) {
                 // The feed exposes no separate video URL: videos only play on the
                 // NASA page, so the same link gets a context aware label.
-                Text(planet.openLabel)
+                Text(
+                    stringResource(
+                        if (planet.isVideo) R.string.action_watch_video else R.string.action_open_original,
+                    ),
+                )
             }
         }
     }
+    if (showViewer && planet.imageUrl != null) {
+        ImageViewer(
+            imageUrl = planet.imageUrl,
+            contentDescription = planet.imageContentDescription,
+            onDismiss = { showViewer = false },
+        )
+    }
+}
+
+/**
+ * Styled text (`<strong>`, links). `LinkAnnotation.Url` spans inside [text]
+ * are clickable out of the box and open in the browser.
+ * Plain cached rows render exactly like before.
+ */
+@Composable
+private fun RichText(
+    text: AnnotatedString,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+) {
+    Text(
+        text = text,
+        modifier = modifier,
+        style = style.merge(color = color),
+    )
 }

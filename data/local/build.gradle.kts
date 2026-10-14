@@ -18,6 +18,9 @@ android {
 
     buildTypes {
         release {
+            // R8 stays on in `app` only. Shrinking here produces stripped AARs:
+            // Hilt loses its `*_Factory`, Room and Retrofit their DAOs, entities and
+            // services. Rules for consumers travel via `consumerProguardFiles`.
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -34,9 +37,16 @@ android {
 dependencies {
     implementation(libs.bundles.room)
     ksp(libs.androidx.room.compiler)
-    implementation(libs.androidx.room.ktx)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+/**
+ * Written next to the sources and committed, so a future `Migration` can be written
+ * against a real previous schema instead of a guess.
+ */
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }

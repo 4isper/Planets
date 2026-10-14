@@ -54,10 +54,31 @@ class PlanetUseCasesTest {
         assertEquals(samplePlanet, GetPlanetDetailsUseCase(FakePlanetRepository())("2026-10-12").first())
     }
 
+    @Test
+    fun `LoadPlanetDetailsUseCase reports a fetched record`() = runBlocking {
+        val repository = FakePlanetRepository(fetchSucceeds = true)
+
+        val result = LoadPlanetDetailsUseCase(repository)("2026-10-12")
+
+        assertEquals(LoadPlanetDetailsResult.Fetched, result)
+        assertEquals(listOf("2026-10-12"), repository.fetchedDates)
+    }
+
+    @Test
+    fun `LoadPlanetDetailsUseCase reports a date the feed does not carry`() = runBlocking {
+        val repository = FakePlanetRepository(fetchSucceeds = false)
+
+        val result = LoadPlanetDetailsUseCase(repository)("2026-10-12")
+
+        assertEquals(LoadPlanetDetailsResult.NotFound, result)
+    }
+
     private class FakePlanetRepository(
         private val pagination: Pagination? = null,
+        private val fetchSucceeds: Boolean = true,
     ) : PlanetRepository {
         var refreshCalls = 0
+        val fetchedDates = mutableListOf<String>()
 
         override fun observePlanets(): Flow<List<Planet>> = flowOf(listOf(samplePlanet))
 
@@ -71,6 +92,11 @@ class PlanetUseCasesTest {
             if (after.hasMore) after.advanced() else null
 
         override fun getPlanet(date: String): Flow<Planet?> = flowOf(samplePlanet)
+
+        override suspend fun fetchPlanet(date: String): Boolean {
+            fetchedDates += date
+            return fetchSucceeds
+        }
     }
 
     private companion object {

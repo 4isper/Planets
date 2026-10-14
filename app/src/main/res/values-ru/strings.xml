@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Планеты</string>
+    <string name="planets_title">NASA APOD</string>
+    <string name="planet_details_title">Детализация</string>
+
+    <!-- Actions -->
+    <string name="action_retry">Повторить</string>
+    <string name="action_back">Назад</string>
+    <string name="action_open_original">Открыть оригинал</string>
+    <string name="action_watch_video">Смотреть видео</string>
+    <string name="action_close_viewer">Закрыть просмотр</string>
+
+    <!-- States -->
+    <string name="state_loading_failed">Ошибка загрузки</string>
+    <string name="state_load_more_failed">Не удалось загрузить ещё</string>
+    <string name="state_not_found">Записи нет в кеше</string>
+    <string name="state_record_missing">Записи за эту дату нет</string>
+    <string name="state_no_image">Нет изображения</string>
+</resources>
