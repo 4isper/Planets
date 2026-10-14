@@ -14,3 +14,11 @@ val NasaBlueDark = Color(0xFF1B3F9E)
 val NasaRed = Color(0xFFFC3D21)
 val Starlight = Color(0xFFF7F9FF)
 val Starcheck = Color(0xFF0B0D18)
+
+// Light-scheme surfaces: muted starlight blue instead of baseline gray.
+val PaleStar = Color(0xFFDFE6F5)
+
+// Tonal red for the video badge: dark container / light text and vice versa.
+val EmberContainer = Color(0xFF5A1A12)
+val EmberOnContainer = Color(0xFFFFDAD4)
+val EmberDeep = Color(0xFF410002)

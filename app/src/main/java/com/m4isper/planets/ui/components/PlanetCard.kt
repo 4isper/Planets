@@ -1,14 +1,17 @@
 package com.m4isper.planets.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +40,9 @@ fun PlanetCard(
 ) {
     Card(
         modifier = modifier.clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
     ) {
         Column {
             Box {
@@ -53,7 +59,8 @@ fun PlanetCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(1f),
+                            .aspectRatio(1f)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -67,8 +74,14 @@ fun PlanetCard(
                     Icon(
                         imageVector = Icons.Filled.PlayArrow,
                         contentDescription = null,
-                        modifier = Modifier.align(Alignment.Center),
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .background(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = CircleShape,
+                            )
+                            .padding(8.dp),
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
                     )
                 }
             }

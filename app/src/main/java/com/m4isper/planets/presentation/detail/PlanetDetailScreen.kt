@@ -150,7 +150,7 @@ private fun PlanetDetails(
         if (planet.explanation.text.isNotEmpty()) {
             RichText(
                 text = planet.explanation,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
             )
         }
         planet.permalink?.let { permalink ->
