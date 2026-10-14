@@ -3,6 +3,13 @@ package com.m4isper.domain.usecase
 import com.m4isper.domain.repository.PlanetRepository
 import javax.inject.Inject
 
+sealed interface LoadPlanetDetailsResult {
+    data object Fetched : LoadPlanetDetailsResult
+
+    /** The feed has no record for this date: retrying cannot change that. */
+    data object NotFound : LoadPlanetDetailsResult
+}
+
 /**
  * Recovers a details screen when the record is not in the cache.
  *
@@ -12,5 +19,10 @@ import javax.inject.Inject
 class LoadPlanetDetailsUseCase @Inject constructor(
     private val repository: PlanetRepository,
 ) {
-    suspend operator fun invoke(date: String) = repository.fetchPlanet(date)
+    suspend operator fun invoke(date: String): LoadPlanetDetailsResult =
+        if (repository.fetchPlanet(date)) {
+            LoadPlanetDetailsResult.Fetched
+        } else {
+            LoadPlanetDetailsResult.NotFound
+        }
 }

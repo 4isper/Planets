@@ -9,12 +9,20 @@ import com.m4isper.local.entity.RemoteKeys
 
 @Database(
     entities = [ApodEntity::class, RemoteKeys::class],
-    version = 5,
-    exportSchema = false,
+    version = PlanetsDatabase.VERSION,
+    exportSchema = true,
 )
 abstract class PlanetsDatabase : RoomDatabase() {
 
     abstract fun apodDao(): ApodDao
 
     abstract fun remoteKeysDao(): RemoteKeysDao
+
+    companion object {
+        /**
+         * 1, because nothing has shipped. Bumping this requires a `Migration`:
+         * `schemas/` is committed so the next one has a baseline to diff against.
+         */
+        const val VERSION = 1
+    }
 }

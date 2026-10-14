@@ -16,6 +16,18 @@ data class Pagination(
 
     fun advanced(): Pagination = copy(currentPage = nextPage)
 
+    /**
+     * The position after a page that yielded [loadedCount] records, or `null` once the
+     * archive is over.
+     *
+     * An empty page ends the archive regardless of [totalPages]: that count is a
+     * header the server may omit or understate, so it cannot be the only stop
+     * condition. A page of records already in the cache still counts — it advanced the
+     * position even though nothing new was added.
+     */
+    fun advancedBy(loadedCount: Int): Pagination? =
+        if (loadedCount <= 0 || !hasMore) null else advanced()
+
     companion object {
         const val INITIAL_PAGE = 1
 

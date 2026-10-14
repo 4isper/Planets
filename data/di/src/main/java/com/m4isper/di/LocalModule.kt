@@ -22,7 +22,17 @@ object LocalModule {
             context,
             PlanetsDatabase::class.java,
             "planets.db",
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
+        )
+            // Wiping is the right call for this cache: every row is derived from the
+            // feed, and `refresh()` rebuilds page 1, so a schema bump costs the user
+            // their scroll position and nothing else. The alternative — no migration
+            // path at all — turns the next bump into a crash on launch.
+            //
+            // It is a decision, not a default, so it stays written down here. The
+            // schemas that would make a real `Migration` possible are committed in
+            // `data/local/schemas`.
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
 
     @Provides
     fun provideApodDao(database: PlanetsDatabase): ApodDao = database.apodDao()

@@ -12,13 +12,12 @@ import com.m4isper.planets.ui.model.PlanetUi
 import com.m4isper.planets.ui.model.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -31,78 +30,101 @@ class PlanetsListViewModel @Inject constructor(
     private val feed: StateFlow<PlanetsFeed> = getPlanets()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), EMPTY_FEED)
 
-    /** The only thing the screen sees: view ready records, never the domain model. */
-    val items: StateFlow<List<PlanetUi>> = feed
-        .map { current -> current.items.map { it.toUi() } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** What the last request settled on. The cache lives beside it, never inside it. */
+    private val request = MutableStateFlow<Request>(Request.Idle)
 
-    private val _uiState = MutableStateFlow<ListUiState>(ListUiState.Loading)
-    val uiState: StateFlow<ListUiState> = _uiState.asStateFlow()
+    /**
+     * What to render, derived rather than remembered.
+     *
+     * Derived from the cache and the request status rather than updated by them, so
+     * that what is on screen never depends on how the last request ended, nor on the
+     * order in which the cache and the network happened to answer. `Content` carries
+     * its own records, which is what lets the screen read exactly one flow.
+     */
+    val uiState: StateFlow<ListUiState> = combine(feed, request) { feed, request ->
+        when {
+            feed.items.isNotEmpty() -> ListUiState.Content(
+                items = feed.items.map { it.toUi() },
+                isRefreshing = request is Request.Refreshing,
+                isAppending = request is Request.Appending,
+                appendError = request is Request.AppendFailed,
+            )
+
+            request is Request.RefreshFailed -> ListUiState.Error(request.cause)
+            // Nothing cached and nothing settled yet: the initial refresh is either
+            // running or about to, and there is nothing to show either way.
+            else -> ListUiState.Loading
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ListUiState.Loading,
+    )
 
     init {
         refresh()
     }
 
     fun refresh() {
-        when (val state = _uiState.value) {
-            is ListUiState.Content -> if (state.isBusy) return
-            // Loading and Error are both refreshable: that is what retry means.
-            is ListUiState.Loading, is ListUiState.Error -> Unit
-        }
-
-        val firstLoad = feed.value.isEmpty
-        // Claim the state before launching: the guard and the flag must be atomic,
+        // Claim the slot synchronously: the guard and the flag must be atomic,
         // otherwise two calls in the same frame both pass the guard.
-        _uiState.update {
-            if (firstLoad) ListUiState.Loading else it.asContent().refreshing()
-        }
+        if (request.value.isBusy) return
+        request.value = Request.Refreshing
 
         viewModelScope.launch {
-            runCatching { refreshPlanets() }
-                .onSuccess {
-                    // A failed refresh must keep the content on screen.
-                    _uiState.update { state ->
-                        if (firstLoad) ListUiState.Content() else state.asContent().refreshing(false)
-                    }
-                }
-                .onFailure { error ->
-                    report(error)
-                    _uiState.update { state ->
-                        if (firstLoad) ListUiState.Error(error) else state.asContent().refreshing(false)
-                    }
-                }
+            try {
+                refreshPlanets()
+                request.value = Request.Idle
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                report(error)
+                request.value = Request.RefreshFailed(error)
+            }
         }
     }
 
     fun loadMore() {
-        val state = _uiState.value
-        if (state !is ListUiState.Content || state.isAppending) return
+        if (request.value.isBusy) return
 
         // The domain owns the stop condition; without a reached position there is nothing to continue from.
         val pagination = feed.value.pagination ?: return
 
-        _uiState.update { it.asContent().appending(isAppending = true, appendError = false) }
+        request.value = Request.Appending
 
         viewModelScope.launch {
-            runCatching { loadMorePlanets(pagination) }
-                .onSuccess { result ->
-                    _uiState.update { it.asContent().appending(isAppending = false) }
-                    if (result is LoadMoreResult.EndReached) {
-                        Log.i(TAG, "Archive reached, no more pages")
-                    }
+            try {
+                val result = loadMorePlanets(pagination)
+                request.value = Request.Idle
+                if (result is LoadMoreResult.EndReached) {
+                    Log.i(TAG, "Archive reached, no more pages")
                 }
-                .onFailure { error ->
-                    report(error)
-                    _uiState.update { it.asContent().appending(isAppending = false, appendError = true) }
-                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                report(error)
+                request.value = Request.AppendFailed(error)
+            }
         }
     }
 
-    private fun ListUiState.asContent(): ListUiState.Content =
-        this as? ListUiState.Content ?: ListUiState.Content()
-
     private fun report(error: Throwable) {
         Log.e(TAG, "Failed to load planets", error)
+    }
+
+    /** The status of the last request. Deliberately unable to say what is on screen. */
+    private sealed interface Request {
+        data object Idle : Request
+
+        data object Refreshing : Request
+
+        data object Appending : Request
+
+        data class RefreshFailed(val cause: Throwable) : Request
+
+        data class AppendFailed(val cause: Throwable) : Request
+
+        val isBusy: Boolean get() = this is Refreshing || this is Appending
     }
 
     private companion object {
@@ -113,27 +135,21 @@ class PlanetsListViewModel @Inject constructor(
 }
 
 /**
- * The list is either empty (and then loading or failed) or populated.
- * Concurrent request flags live only inside [Content], so the impossible
- * combinations cannot be constructed by the UI.
+ * The list is either populated or empty (and then loading or failed).
+ *
+ * [Content] carries its own records, so the screen has exactly one thing to read and
+ * cannot pair the list with a status that was decided somewhere else. An empty
+ * [Content] is therefore not representable: the two facts are the same fact.
  */
 sealed interface ListUiState {
-
     data object Loading : ListUiState
 
     data class Error(val cause: Throwable) : ListUiState
 
     data class Content(
+        val items: List<PlanetUi>,
         val isRefreshing: Boolean = false,
         val isAppending: Boolean = false,
         val appendError: Boolean = false,
-    ) : ListUiState {
-        /** A refresh must not overlap a page load, otherwise the cache swap races. */
-        val isBusy: Boolean get() = isRefreshing || isAppending
-
-        fun refreshing(value: Boolean = true): Content = copy(isRefreshing = value)
-
-        fun appending(isAppending: Boolean, appendError: Boolean = this.appendError): Content =
-            copy(isAppending = isAppending, appendError = appendError)
-    }
+    ) : ListUiState
 }

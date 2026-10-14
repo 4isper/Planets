@@ -1,9 +1,14 @@
 package com.m4isper.planets.presentation.list
 
+import com.m4isper.domain.model.Pagination
 import com.m4isper.domain.usecase.GetPlanetsUseCase
 import com.m4isper.domain.usecase.LoadMorePlanetsUseCase
 import com.m4isper.domain.usecase.RefreshPlanetsUseCase
+import com.m4isper.planets.presentation.FakePlanetRepository
 import com.m4isper.planets.presentation.MainDispatcherRule
+import com.m4isper.planets.presentation.FakePlanetRepository.Companion.SAMPLE
+import com.m4isper.planets.presentation.FakePlanetRepository.Companion.networkError
+import com.m4isper.planets.ui.model.PlanetUi
 import com.m4isper.planets.ui.model.toUi
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,23 +37,23 @@ class PlanetsListViewModelTest {
 
         assertEquals(1, repository.refreshCalls)
         assertTrue(viewModel.uiState.value is ListUiState.Content)
-        assertEquals(listOf(FakePlanetRepository.SAMPLE.toUi()), viewModel.items.value)
+        assertEquals(listOf(SAMPLE.toUi()), viewModel.uiState.value.contentItems())
     }
 
     @Test
     fun `failed first load exposes the cause`() = runTest {
-        val repository = FakePlanetRepository().apply { refreshFailure = FakePlanetRepository.networkError() }
+        val repository = FakePlanetRepository().apply { refreshFailure = networkError() }
         val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertTrue(state is ListUiState.Error)
-        assertSame(FakePlanetRepository.networkError().javaClass, (state as ListUiState.Error).cause.javaClass)
+        assertSame(networkError().javaClass, (state as ListUiState.Error).cause.javaClass)
     }
 
     @Test
     fun `retry after a failure loads content`() = runTest {
-        val repository = FakePlanetRepository().apply { refreshFailure = FakePlanetRepository.networkError() }
+        val repository = FakePlanetRepository().apply { refreshFailure = networkError() }
         val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
@@ -116,7 +121,7 @@ class PlanetsListViewModelTest {
 
     @Test
     fun `failed page load keeps the content and offers a retry`() = runTest {
-        val repository = FakePlanetRepository().apply { loadMoreFailure = FakePlanetRepository.networkError() }
+        val repository = FakePlanetRepository().apply { loadMoreFailure = networkError() }
         val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
@@ -126,7 +131,7 @@ class PlanetsListViewModelTest {
         val state = viewModel.uiState.value as ListUiState.Content
         assertFalse(state.isAppending)
         assertTrue(state.appendError)
-        assertEquals(listOf(FakePlanetRepository.SAMPLE.toUi()), viewModel.items.value)
+        assertEquals(listOf(SAMPLE.toUi()), viewModel.uiState.value.contentItems())
     }
 
     @Test
@@ -143,15 +148,82 @@ class PlanetsListViewModelTest {
         assertEquals(1, repository.loadMoreCalls)
     }
 
+    @Test
+    fun `a warm cache survives a failed refresh and still pages`() = runTest {
+        val repository = FakePlanetRepository().apply {
+            items.value = listOf(SAMPLE)
+            pagination.value = Pagination(currentPage = 3, totalPages = 20)
+            refreshFailure = networkError()
+        }
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        // The list is on screen, so it must stay interactive.
+        val state = viewModel.uiState.value
+        assertTrue(state is ListUiState.Content)
+        assertEquals(listOf(SAMPLE.toUi()), viewModel.uiState.value.contentItems())
+        assertFalse((state as ListUiState.Content).appendError)
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertEquals(1, repository.loadMoreCalls)
+    }
+
+    @Test
+    fun `a cache that arrives after the refresh failed is still content`() = runTest {
+        val repository = FakePlanetRepository().apply { refreshFailure = networkError() }
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value is ListUiState.Error)
+
+        // The cache lands after the network has already given up. The state has to
+        // follow the cache, not the order the two happened to arrive in.
+        repository.items.value = listOf(SAMPLE)
+        repository.pagination.value = Pagination(currentPage = 1, totalPages = 20)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value is ListUiState.Content)
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertEquals(1, repository.loadMoreCalls)
+    }
+
+    @Test
+    fun `refresh is ignored while the initial refresh is still in flight`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val repository = FakePlanetRepository().apply { loadMoreGate = gate }
+        val viewModel = createViewModel(repository)
+
+        // `init` already claimed the slot; three more pulls in the same frame
+        // must not start a second request.
+        viewModel.refresh()
+        viewModel.refresh()
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(1, repository.refreshCalls)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+    }
+
     private fun TestScope.createViewModel(repository: FakePlanetRepository): PlanetsListViewModel {
         val viewModel = PlanetsListViewModel(
             getPlanets = GetPlanetsUseCase(repository),
             refreshPlanets = RefreshPlanetsUseCase(repository),
             loadMorePlanets = LoadMorePlanetsUseCase(repository),
         )
-        // The UI always collects both flows.
-        backgroundScope.launch { viewModel.items.collect {} }
+        // The UI collects uiState and nothing else.
         backgroundScope.launch { viewModel.uiState.collect {} }
         return viewModel
     }
 }
+
+private val SAMPLE = SAMPLE
+
+private fun networkError() = networkError()
+
+/** The list the screen renders, read through the only state it consumes. */
+private fun ListUiState.contentItems(): List<PlanetUi> =
+    (this as? ListUiState.Content)?.items ?: emptyList()

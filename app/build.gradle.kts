@@ -55,6 +55,8 @@ dependencies {
 
     // Image loading
     implementation(libs.coil.compose)
+    // Coil 3 pulls in only `coil-core`; without an explicit fetcher images fail to
+    // load entirely, and silently — no exception, just empty placeholders.
     implementation(libs.coil.network.okhttp)
 
     // Navigation
@@ -83,6 +85,12 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    // The Compose BOM has to be repeated here: `androidTestImplementation` does not
+    // extend `implementation`, where the BOM is declared above, so without this copy
+    // the versionless `ui-test-junit4` below reaches Gradle with no version at all.
+    // It only surfaces through `check`/`build` — `assemble*` and the unit tests never
+    // resolve `debugAndroidTestRuntimeClasspath`.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

@@ -47,6 +47,7 @@ fun PlanetDetailScreen(
     ),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isRetrying by viewModel.isRetrying.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -71,18 +72,32 @@ fun PlanetDetailScreen(
         ) {
             when (val state = uiState) {
                 DetailUiState.Loading -> CircularProgressIndicator()
-                DetailUiState.Empty -> LoadError(
-                    message = R.string.state_not_found,
+                // NotFound is settled: the feed has no such date, so no retry is offered.
+                DetailUiState.NotFound -> LoadError(message = stringResource(R.string.state_record_missing))
+                DetailUiState.Empty -> FetchState(
+                    message = stringResource(R.string.state_not_found),
+                    isRetrying = isRetrying,
                     onRetry = viewModel::retry,
                 )
-                is DetailUiState.Error -> LoadError(
-                    message = R.string.state_loading_failed,
+                is DetailUiState.Error -> FetchState(
+                    message = stringResource(R.string.state_loading_failed),
+                    isRetrying = isRetrying,
                     onRetry = viewModel::retry,
                 )
                 is DetailUiState.Content -> PlanetDetails(planet = state.planet)
             }
         }
     }
+}
+
+/** Swaps the failure block for a spinner while the fetch is in flight. */
+@Composable
+private fun FetchState(
+    message: String,
+    isRetrying: Boolean,
+    onRetry: () -> Unit,
+) {
+    if (isRetrying) CircularProgressIndicator() else LoadError(message = message, onRetry = onRetry)
 }
 
 @Composable
@@ -113,10 +128,10 @@ private fun PlanetDetails(
             style = MaterialTheme.typography.titleLarge,
         )
         Text(
-                text = planet.subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            text = planet.subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (planet.explanation.isNotEmpty()) {
             Text(
                 text = planet.explanation,

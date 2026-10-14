@@ -4,9 +4,11 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.m4isper.domain.usecase.GetPlanetDetailsUseCase
+import com.m4isper.domain.usecase.LoadPlanetDetailsResult
 import com.m4isper.domain.usecase.LoadPlanetDetailsUseCase
 import com.m4isper.planets.ui.model.PlanetUi
 import com.m4isper.planets.ui.model.toUi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,17 +30,21 @@ class PlanetDetailViewModel(
     private val loadPlanetDetails: LoadPlanetDetailsUseCase,
 ) : ViewModel() {
 
-    private val fetchError = MutableStateFlow<Throwable?>(null)
+    /** What the last fetch settled on. `null` means nothing has been attempted yet. */
+    private val fetchOutcome = MutableStateFlow<FetchOutcome?>(null)
     private val _isRetrying = MutableStateFlow(false)
     val isRetrying: StateFlow<Boolean> = _isRetrying.asStateFlow()
 
     val uiState: StateFlow<DetailUiState> = combine(
         getPlanetDetails(date).map { it?.toUi() },
-        fetchError,
-    ) { planet, error ->
+        fetchOutcome,
+    ) { planet, outcome ->
         when {
+            // The cache wins: a successful fetch needs no state of its own, the
+            // Room flow re-emits on its own once the record lands.
             planet != null -> DetailUiState.Content(planet)
-            error != null -> DetailUiState.Error(error)
+            outcome is FetchOutcome.Failed -> DetailUiState.Error(outcome.cause)
+            outcome is FetchOutcome.NotFound -> DetailUiState.NotFound
             else -> DetailUiState.Empty
         }
     }.stateIn(
@@ -58,13 +64,29 @@ class PlanetDetailViewModel(
         _isRetrying.value = true
 
         viewModelScope.launch {
-            runCatching { loadPlanetDetails(date) }
-                .onFailure { error ->
-                    Log.e(TAG, "Failed to fetch planet $date", error)
-                    fetchError.value = error
+            try {
+                fetchOutcome.value = when (loadPlanetDetails(date)) {
+                    // Clearing the outcome is what un-sticks a screen that failed
+                    // once and succeeded on a later attempt.
+                    LoadPlanetDetailsResult.Fetched -> null
+                    LoadPlanetDetailsResult.NotFound -> FetchOutcome.NotFound
                 }
-            _isRetrying.value = false
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                Log.e(TAG, "Failed to fetch planet $date", error)
+                fetchOutcome.value = FetchOutcome.Failed(error)
+            } finally {
+                _isRetrying.value = false
+            }
         }
+    }
+
+    private sealed interface FetchOutcome {
+        data class Failed(val cause: Throwable) : FetchOutcome
+
+        /** The feed has no such date. Retrying this cannot help. */
+        data object NotFound : FetchOutcome
     }
 
     private companion object {
@@ -77,6 +99,9 @@ sealed interface DetailUiState {
 
     /** Nothing in the cache yet; the screen can still fetch the record. */
     data object Empty : DetailUiState
+
+    /** The feed carries no record for this date: there is nothing left to fetch. */
+    data object NotFound : DetailUiState
 
     data class Error(val cause: Throwable) : DetailUiState
 

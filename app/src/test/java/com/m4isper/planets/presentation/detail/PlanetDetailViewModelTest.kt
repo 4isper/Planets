@@ -1,20 +1,17 @@
 package com.m4isper.planets.presentation.detail
 
-import com.m4isper.domain.model.Pagination
-import com.m4isper.domain.model.Planet
-import com.m4isper.domain.repository.PlanetRepository
 import com.m4isper.domain.usecase.GetPlanetDetailsUseCase
 import com.m4isper.domain.usecase.LoadPlanetDetailsUseCase
+import com.m4isper.planets.presentation.FakePlanetRepository
 import com.m4isper.planets.presentation.MainDispatcherRule
+import com.m4isper.planets.presentation.FakePlanetRepository.Companion.SAMPLE
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -28,18 +25,29 @@ class PlanetDetailViewModelTest {
 
     @Test
     fun `cached record is shown`() = runTest {
-        val repository = FakePlanetRepository(cached = SAMPLE)
-        val viewModel = createViewModel(repository)
+        val viewModel = createViewModel(FakePlanetRepository().apply { cache(SAMPLE) })
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertTrue(state is DetailUiState.Content)
-        assertEquals(SAMPLE.date, (state as DetailUiState.Content).planet.title.let { SAMPLE.date })
+        assertEquals(SAMPLE.title, (state as DetailUiState.Content).planet.title)
+        assertEquals(SAMPLE.date, state.planet.date)
     }
 
     @Test
     fun `missing cache entry ends in empty, not loading`() = runTest {
-        val viewModel = createViewModel(FakePlanetRepository(cached = null))
+        val viewModel = createViewModel(FakePlanetRepository())
+        advanceUntilIdle()
+
+        assertEquals(DetailUiState.Empty, viewModel.uiState.value)
+    }
+
+    @Test
+    fun `a cached record for another date does not answer this one`() = runTest {
+        val repository = FakePlanetRepository().apply {
+            cache(SAMPLE.copy(date = "2026-10-11"))
+        }
+        val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
         assertEquals(DetailUiState.Empty, viewModel.uiState.value)
@@ -47,7 +55,7 @@ class PlanetDetailViewModelTest {
 
     @Test
     fun `retry fetches the record and the cache update shows it`() = runTest {
-        val repository = FakePlanetRepository(cached = null)
+        val repository = FakePlanetRepository()
         val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
@@ -62,9 +70,7 @@ class PlanetDetailViewModelTest {
 
     @Test
     fun `failed retry surfaces an error state`() = runTest {
-        val repository = FakePlanetRepository(cached = null).apply {
-            fetchFailure = IOException("offline")
-        }
+        val repository = FakePlanetRepository().apply { fetchFailure = IOException("offline") }
         val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
@@ -77,8 +83,39 @@ class PlanetDetailViewModelTest {
     }
 
     @Test
+    fun `a date the feed does not carry is settled, not a retryable error`() = runTest {
+        val repository = FakePlanetRepository().apply { fetchSucceeds = false }
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertEquals(DetailUiState.NotFound, viewModel.uiState.value)
+    }
+
+    @Test
+    fun `a later successful retry clears the earlier failure`() = runTest {
+        val repository = FakePlanetRepository().apply { fetchFailure = IOException("offline") }
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+        viewModel.retry()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value is DetailUiState.Error)
+
+        repository.fetchFailure = null
+        repository.fetchSucceeds = true
+        repository.cache(SAMPLE)
+        viewModel.retry()
+        advanceUntilIdle()
+
+        // The stuck error would otherwise keep the record off the screen.
+        assertTrue(viewModel.uiState.value is DetailUiState.Content)
+    }
+
+    @Test
     fun `repeated retries do not overlap`() = runTest {
-        val repository = FakePlanetRepository(cached = null)
+        val repository = FakePlanetRepository()
         val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
@@ -89,55 +126,22 @@ class PlanetDetailViewModelTest {
         assertEquals(1, repository.fetchCalls)
     }
 
+    @Test
+    fun `the retry flag clears once the fetch settles`() = runTest {
+        val repository = FakePlanetRepository()
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.isRetrying.value)
+    }
+
     private fun TestScope.createViewModel(repository: FakePlanetRepository) =
         PlanetDetailViewModel(
             date = SAMPLE.date,
             getPlanetDetails = GetPlanetDetailsUseCase(repository),
             loadPlanetDetails = LoadPlanetDetailsUseCase(repository),
         ).also { backgroundScope.launch { it.uiState.collect {} } }
-
-    private class FakePlanetRepository(cached: Planet?) : PlanetRepository {
-
-        var fetchCalls = 0
-            private set
-
-        var fetchFailure: Throwable? = null
-
-        /** Room exposes the record as a Flow that re-emits on every cache change. */
-        private val cached = MutableStateFlow(cached)
-        private val items = MutableStateFlow<List<Planet>>(listOfNotNull(cached))
-
-        fun cache(planet: Planet) {
-            cached.value = planet
-            items.value = listOf(planet)
-        }
-
-        override fun observePlanets(): Flow<List<Planet>> = items
-
-        override fun observePagination(): Flow<Pagination?> = flowOf(null)
-
-        override suspend fun refresh() = Unit
-
-        override suspend fun loadMore(after: Pagination): Pagination? = null
-
-        override fun getPlanet(date: String): Flow<Planet?> = cached
-
-        override suspend fun fetchPlanet(date: String) {
-            fetchCalls++
-            fetchFailure?.let { throw it }
-        }
-    }
-
-    private companion object {
-        val SAMPLE = Planet(
-            date = "2026-10-12",
-            title = "Jupiter and the Moons",
-            explanation = "Explanation text",
-            mediaType = "image",
-            credit = "NASA",
-            imageDescription = "Jupiter and four of its moons",
-            permalink = "https://science.nasa.gov/image-article/apod-2026/",
-            imageUrl = "https://assets.science.nasa.gov/dynamicimage/jupiter.jpg",
-        )
-    }
 }

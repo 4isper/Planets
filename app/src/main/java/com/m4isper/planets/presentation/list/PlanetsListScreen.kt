@@ -42,9 +42,7 @@ fun PlanetsListScreen(
     onPlanetClick: (date: String) -> Unit,
     viewModel: PlanetsListViewModel = hiltViewModel(),
 ) {
-    val planets by viewModel.items.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val content = uiState as? ListUiState.Content
 
     Scaffold(
         topBar = {
@@ -52,7 +50,7 @@ fun PlanetsListScreen(
         },
     ) { innerPadding ->
         PullToRefreshBox(
-            isRefreshing = content?.isRefreshing == true,
+            isRefreshing = (uiState as? ListUiState.Content)?.isRefreshing == true,
             onRefresh = viewModel::refresh,
             modifier = Modifier
                 .padding(innerPadding)
@@ -62,21 +60,20 @@ fun PlanetsListScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                when {
-                    planets.isNotEmpty() -> PlanetsGrid(
-                        planets = planets,
-                        isAppending = content?.isAppending == true,
-                        appendError = content?.appendError == true,
+                when (val state = uiState) {
+                    is ListUiState.Content -> PlanetsGrid(
+                        planets = state.items,
+                        isAppending = state.isAppending,
+                        appendError = state.appendError,
                         onPlanetClick = onPlanetClick,
                         onEndReached = viewModel::loadMore,
                         onRetryAppend = viewModel::loadMore,
                     )
-                    uiState is ListUiState.Loading -> CircularProgressIndicator()
-                    uiState is ListUiState.Error -> LoadError(
-                        message = R.string.state_loading_failed,
+                    ListUiState.Loading -> CircularProgressIndicator()
+                    is ListUiState.Error -> LoadError(
+                        message = stringResource(R.string.state_loading_failed),
                         onRetry = viewModel::refresh,
                     )
-                    else -> Text(stringResource(R.string.state_no_data))
                 }
             }
         }
@@ -142,7 +139,7 @@ private fun PlanetsGrid(
         if (appendError) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LoadError(
-                    message = R.string.state_load_more_failed,
+                    message = stringResource(R.string.state_load_more_failed),
                     onRetry = onRetryAppend,
                 )
             }
