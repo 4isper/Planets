@@ -82,6 +82,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.jsoup)
+    implementation(libs.telephoto.zoomable.image.coil3)
     testImplementation(libs.junit)
     testImplementation(libs.jsoup)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -9,6 +9,7 @@
     <string name="action_back">Back</string>
     <string name="action_open_original">Open original</string>
     <string name="action_watch_video">Watch video</string>
+    <string name="action_close_viewer">Close image viewer</string>
 
     <!-- States -->
     <string name="state_loading_failed">Failed to load</string>

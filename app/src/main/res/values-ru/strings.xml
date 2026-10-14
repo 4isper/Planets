@@ -9,6 +9,7 @@
     <string name="action_back">Назад</string>
     <string name="action_open_original">Открыть оригинал</string>
     <string name="action_watch_video">Смотреть видео</string>
+    <string name="action_close_viewer">Закрыть просмотр</string>
 
     <!-- States -->
     <string name="state_loading_failed">Ошибка загрузки</string>
