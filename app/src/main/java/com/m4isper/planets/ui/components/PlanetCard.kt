@@ -24,17 +24,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.m4isper.planets.R
-import com.m4isper.planets.ui.model.PlanetUi
+import com.m4isper.planets.ui.model.PlanetCardUi
 
 /**
  * Grid tile for a single APOD record.
  *
- * Design system component: it renders a [PlanetUi] and knows nothing about paging,
+ * Design system component: it renders a [PlanetCardUi] and knows nothing about paging,
  * navigation or where the record came from.
  */
 @Composable
 fun PlanetCard(
-    planet: PlanetUi,
+    planet: PlanetCardUi,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {

@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m4isper.planets.R
-import com.m4isper.planets.ui.model.PlanetUi
+import com.m4isper.planets.ui.model.PlanetCardUi
 import com.m4isper.planets.ui.components.LoadError
 import com.m4isper.planets.ui.components.PlanetCard
 import kotlinx.coroutines.flow.collect
@@ -82,7 +82,7 @@ fun PlanetsListScreen(
 
 @Composable
 private fun PlanetsGrid(
-    planets: List<PlanetUi>,
+    planets: List<PlanetCardUi>,
     isAppending: Boolean,
     appendError: Boolean,
     onPlanetClick: (date: String) -> Unit,

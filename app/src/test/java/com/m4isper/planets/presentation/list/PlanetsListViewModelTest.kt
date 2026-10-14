@@ -8,8 +8,8 @@ import com.m4isper.planets.presentation.FakePlanetRepository
 import com.m4isper.planets.presentation.MainDispatcherRule
 import com.m4isper.planets.presentation.FakePlanetRepository.Companion.SAMPLE
 import com.m4isper.planets.presentation.FakePlanetRepository.Companion.networkError
-import com.m4isper.planets.ui.model.PlanetUi
-import com.m4isper.planets.ui.model.toUi
+import com.m4isper.planets.ui.model.PlanetCardUi
+import com.m4isper.planets.ui.model.toCardUi
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -37,7 +37,7 @@ class PlanetsListViewModelTest {
 
         assertEquals(1, repository.refreshCalls)
         assertTrue(viewModel.uiState.value is ListUiState.Content)
-        assertEquals(listOf(SAMPLE.toUi()), viewModel.uiState.value.contentItems())
+        assertEquals(listOf(SAMPLE.toCardUi()), viewModel.uiState.value.contentItems())
     }
 
     @Test
@@ -131,7 +131,7 @@ class PlanetsListViewModelTest {
         val state = viewModel.uiState.value as ListUiState.Content
         assertFalse(state.isAppending)
         assertTrue(state.appendError)
-        assertEquals(listOf(SAMPLE.toUi()), viewModel.uiState.value.contentItems())
+        assertEquals(listOf(SAMPLE.toCardUi()), viewModel.uiState.value.contentItems())
     }
 
     @Test
@@ -161,7 +161,7 @@ class PlanetsListViewModelTest {
         // The list is on screen, so it must stay interactive.
         val state = viewModel.uiState.value
         assertTrue(state is ListUiState.Content)
-        assertEquals(listOf(SAMPLE.toUi()), viewModel.uiState.value.contentItems())
+        assertEquals(listOf(SAMPLE.toCardUi()), viewModel.uiState.value.contentItems())
         assertFalse((state as ListUiState.Content).appendError)
 
         viewModel.loadMore()
@@ -225,5 +225,5 @@ private val SAMPLE = SAMPLE
 private fun networkError() = networkError()
 
 /** The list the screen renders, read through the only state it consumes. */
-private fun ListUiState.contentItems(): List<PlanetUi> =
+private fun ListUiState.contentItems(): List<PlanetCardUi> =
     (this as? ListUiState.Content)?.items ?: emptyList()

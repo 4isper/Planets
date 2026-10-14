@@ -8,8 +8,8 @@ import com.m4isper.domain.usecase.GetPlanetsUseCase
 import com.m4isper.domain.usecase.LoadMorePlanetsUseCase
 import com.m4isper.domain.usecase.LoadMoreResult
 import com.m4isper.domain.usecase.RefreshPlanetsUseCase
-import com.m4isper.planets.ui.model.PlanetUi
-import com.m4isper.planets.ui.model.toUi
+import com.m4isper.planets.ui.model.PlanetCardUi
+import com.m4isper.planets.ui.model.toCardUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -44,7 +44,9 @@ class PlanetsListViewModel @Inject constructor(
     val uiState: StateFlow<ListUiState> = combine(feed, request) { feed, request ->
         when {
             feed.items.isNotEmpty() -> ListUiState.Content(
-                items = feed.items.map { it.toUi() },
+                // Card mapping is plain strings only (no Jsoup): safe on Main
+                // for every cache emission, however large the feed grows.
+                items = feed.items.map { it.toCardUi() },
                 isRefreshing = request is Request.Refreshing,
                 isAppending = request is Request.Appending,
                 appendError = request is Request.AppendFailed,
@@ -147,7 +149,7 @@ sealed interface ListUiState {
     data class Error(val cause: Throwable) : ListUiState
 
     data class Content(
-        val items: List<PlanetUi>,
+        val items: List<PlanetCardUi>,
         val isRefreshing: Boolean = false,
         val isAppending: Boolean = false,
         val appendError: Boolean = false,

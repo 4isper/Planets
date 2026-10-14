@@ -143,5 +143,6 @@ class PlanetDetailViewModelTest {
             date = SAMPLE.date,
             getPlanetDetails = GetPlanetDetailsUseCase(repository),
             loadPlanetDetails = LoadPlanetDetailsUseCase(repository),
+            mappingDispatcher = mainDispatcherRule.testDispatcher,
         ).also { backgroundScope.launch { it.uiState.collect {} } }
 }

@@ -9,11 +9,14 @@ import com.m4isper.domain.usecase.LoadPlanetDetailsUseCase
 import com.m4isper.planets.ui.model.PlanetUi
 import com.m4isper.planets.ui.model.toUi
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,11 +26,16 @@ import kotlinx.coroutines.launch
  *
  * Navigation 3 hands the NavKey to the destination lambda but does not copy its fields
  * into SavedStateHandle, which is what Navigation 2 used to do via navArgument.
+ *
+ * @param mappingDispatcher runs the Jsoup rich-text mapping: CPU-bound work that
+ * must not ride the Main thread. Injected (rather than hardcoded) so tests can
+ * supply a test dispatcher and stay deterministic.
  */
 class PlanetDetailViewModel(
     private val date: String,
     private val getPlanetDetails: GetPlanetDetailsUseCase,
     private val loadPlanetDetails: LoadPlanetDetailsUseCase,
+    private val mappingDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
 
     /** What the last fetch settled on. `null` means nothing has been attempted yet. */
@@ -36,7 +44,7 @@ class PlanetDetailViewModel(
     val isRetrying: StateFlow<Boolean> = _isRetrying.asStateFlow()
 
     val uiState: StateFlow<DetailUiState> = combine(
-        getPlanetDetails(date).map { it?.toUi() },
+        getPlanetDetails(date).map { it?.toUi() }.flowOn(mappingDispatcher),
         fetchOutcome,
     ) { planet, outcome ->
         when {
